@@ -16,11 +16,11 @@ set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTORCC ON)
 set(CMAKE_AUTOUIC ON)
 
-# ── Find Qt6 modules needed for Batch 1 (more added in later batches) ─────────
+# ── Find Qt6 modules ──────────────────────────────────────────────────────────
 find_package(Qt6 REQUIRED COMPONENTS
     Core
-    Widgets        # Needed from Batch 4 onward, listed now for unified cmake
-    Network        # Qt network interfaces (optional helper alongside WinAPI)
+    Widgets
+    Network
 )
 
 qt_standard_project_setup()
@@ -31,7 +31,6 @@ set(NSM_SOURCES
 
     # Config subsystem
     src/config/AppConfig.h
-    src/config/AppConfig.cpp
     src/config/ConfigManager.h
     src/config/ConfigManager.cpp
 
@@ -40,18 +39,21 @@ set(NSM_SOURCES
     src/core/NetworkPoller.cpp
     src/core/SpeedSample.h
 
-    # UI — Batch 2: Settings Dialog
+    # Settings Dialog (Moved to ui/ by AI)
     src/ui/SettingsDialog.h
     src/ui/SettingsDialog.cpp
-)
 
-# ── Resources ─────────────────────────────────────────────────────────────────
-# (populated in later batches with icons / fonts)
-# qt_add_resources(NSM_SOURCES resources/resources.qrc)
+    # UI — Tray Manager
+    src/ui/TrayManager.h
+    src/ui/TrayManager.cpp
+
+    # UI — Frameless Speed Widget
+    src/ui/SpeedWidget.h
+    src/ui/SpeedWidget.cpp
+)
 
 # ── Executable ───────────────────────────────────────────────────────────────
 if(WIN32)
-    # WIN32 = no console window on Windows
     qt_add_executable(NetSpeedMeter WIN32 ${NSM_SOURCES})
 else()
     qt_add_executable(NetSpeedMeter ${NSM_SOURCES})
@@ -71,8 +73,8 @@ target_link_libraries(NetSpeedMeter PRIVATE
 
 if(WIN32)
     target_link_libraries(NetSpeedMeter PRIVATE
-        iphlpapi      # GetIfTable2 / GetIfEntry2 — network statistics
-        ws2_32        # Winsock (pulled in transitively, but explicit is cleaner)
+        iphlpapi
+        ws2_32
     )
     target_compile_definitions(NetSpeedMeter PRIVATE
         WIN32_LEAN_AND_MEAN
@@ -89,7 +91,7 @@ else()
     target_compile_options(NetSpeedMeter PRIVATE -Wall -Wextra -Wpedantic)
 endif()
 
-# ── Release optimisations (smaller binary) ────────────────────────────────────
+# ── Release optimisations ────────────────────────────────────────────────────
 if(CMAKE_BUILD_TYPE STREQUAL "Release")
     if(MSVC)
         target_compile_options(NetSpeedMeter PRIVATE /O2 /GL)
@@ -99,7 +101,7 @@ if(CMAKE_BUILD_TYPE STREQUAL "Release")
     endif()
 endif()
 
-# ── Installation / deployment helper (optional windeployqt) ───────────────────
+# ── windeployqt ───────────────────────────────────────────────────────────────
 if(WIN32)
     find_program(WINDEPLOYQT windeployqt HINTS "${Qt6_DIR}/../../../bin")
     if(WINDEPLOYQT)

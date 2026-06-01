@@ -1,0 +1,48 @@
+# Build outputs
+build/
+dist/
+*.exe
+*.obj
+*.pdb
+*.ilk
+*.exp
+*.lib
+*.dll
+
+# CMake generated
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+Makefile
+install_manifest.txt
+*.cbp
+
+# Qt AUTOMOC / AUTOUIC generated
+moc_*.cpp
+moc_*.h
+ui_*.h
+qrc_*.cpp
+
+# VS / CLion
+.vs/
+.idea/
+*.user
+*.suo
+*.ncb
+*.sdf
+*.opensdf
+*.vcxproj.user
+*.vcxproj.filters
+*.vcxproj
+
+# Ninja
+.ninja_deps
+.ninja_log
+
+# macOS / Linux
+.DS_Store
+*.o
+*.a
+
+# Runtime data (not in source)
+config.json

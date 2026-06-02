@@ -1,6 +1,7 @@
 #include <QApplication>
 #include <QDebug>
 #include <QSharedMemory>
+#include <QFile> // <--- ADDED THIS LINE
 
 #include "config/ConfigManager.h"
 #include "core/NetworkPoller.h"
@@ -26,9 +27,16 @@ int main(int argc, char* argv[])
         return 0; 
     }
 
+    // ── Configuration ─────────────────────────────────────────────────────────
     nsm::ConfigManager& cfgMgr = nsm::ConfigManager::instance();
+
+    bool isFirstRun = !QFile::exists(cfgMgr.configFilePath());
+
     if (!cfgMgr.load())
         qWarning() << "Failed to load config; using defaults.";
+    if (isFirstRun) {
+        cfgMgr.save();
+    }
 
     const nsm::AppConfig cfg = cfgMgr.config();
 

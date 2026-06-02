@@ -7,6 +7,8 @@
 #include <QFile>
 #include <QDir>
 #include <QStandardPaths>
+#include <QSettings>
+#include <QCoreApplication>
 #include <QDebug>
 
 namespace nsm {
@@ -74,7 +76,7 @@ bool ConfigManager::load()
     if (!file.exists()) {
         qDebug() << "ConfigManager: no config file found, using defaults.";
         QMutexLocker lock(&m_mutex);
-        m_config = AppConfig{}; // Explicitly ensure defaults are mapped
+        m_config = AppConfig{}; 
         return true;
     }
 
@@ -155,6 +157,21 @@ bool ConfigManager::save() const
         QMutexLocker lock(&m_mutex);
         cfg = m_config;
     }
+
+    // ── FIXED: Windows Registry Autostart Integration ──
+#ifdef _WIN32
+    QString appPath = QDir::toNativeSeparators(QCoreApplication::applicationFilePath());
+    QSettings reg(QStringLiteral("HKEY_CURRENT_USER\\Software\\Microsoft\\Windows\\CurrentVersion\\Run"), QSettings::NativeFormat);
+    
+    if (cfg.startWithWindows) {
+        // Adds the path wrapped in quotes to handle spaces in folder names
+        reg.setValue(QStringLiteral("NetSpeedMeter"), QStringLiteral("\"%1\"").arg(appPath));
+    } else {
+        // Removes it from startup
+        reg.remove(QStringLiteral("NetSpeedMeter"));
+    }
+#endif
+    // ───────────────────────────────────────────────────
 
     QJsonObject root;
 

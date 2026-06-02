@@ -13,7 +13,7 @@ struct AppConfig
 {
     // General
     int updateIntervalMs { 1000 };
-    bool startWithWindows { false };
+    bool startWithWindows { true };
     bool minimiseToTray { true };
 
     // Network

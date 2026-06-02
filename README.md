@@ -1,6 +1,34 @@
 # NetSpeedMeter
 
-A lightweight, high performance network speed monitor that integrates seamlessly into the Windows taskbar. Built with **C++17** and **Qt 6**, NetSpeedMeter uses native Windows APIs to provide accurate, real time download and upload speed metrics directly within your workspace without unnecessary background clutter.
+[![Download Latest Release](https://img.shields.io/github/v/release/sayedalve/netspeedmeter?label=Download%20Latest%20Release\&style=for-the-badge\&color=success)](https://github.com/sayedalve/netspeedmeter/releases/latest)
+
+A lightweight, high performance network speed monitor that integrates seamlessly into the Windows taskbar. Built with **C++17** and **Qt 6**, NetSpeedMeter uses native Windows APIs to provide accurate, real time download and upload speed metrics directly within your workspace without unnecessary clutter.
+
+---
+
+## 📥 Download & Install
+
+**You do not need to compile this application to use it.**
+
+### Quick Start
+
+1. Download the latest release from:
+   https://github.com/sayedalve/netspeedmeter/releases/latest
+
+2. Extract the downloaded `.zip` file.
+
+3. Run:
+
+```text
+NetSpeedMeter.exe
+```
+
+No installation is required.
+
+### System Requirements
+
+* Windows 10 (64 bit)
+* Windows 11 (64 bit)
 
 ---
 
@@ -8,37 +36,38 @@ A lightweight, high performance network speed monitor that integrates seamlessly
 
 ### Native Taskbar Integration
 
-* Frameless, transparent interface designed to blend naturally with the Windows taskbar.
-* Advanced Z order locking mechanism prevents the overlay from slipping behind the taskbar during user interaction.
-* Minimal footprint with a clean and distraction free appearance.
+* Frameless and transparent interface designed to blend naturally with the Windows taskbar.
+* Advanced Z order locking mechanism prevents the overlay from slipping behind the taskbar during interaction.
+* Clean and distraction free design.
 
 ### Intelligent Visibility Management
 
 * Automatically hides when fullscreen applications are detected.
-* Supports games, media playback, presentations, and other fullscreen activities.
-* Detects Windows Start Menu and Search panels to prevent overlay conflicts.
+* Supports games, videos, presentations, and media playback.
+* Detects Windows Start Menu and Search panels to prevent UI conflicts.
 
 ### Windows 11 Input Handling
 
 * Custom low level mouse event interception.
 * Prevents Windows 11 shell input interception issues.
-* Provides a responsive dark themed context menu experience.
+* Responsive dark themed context menu.
 
 ### Accurate Network Monitoring
 
 * Uses native Windows **GetIfEntry2** APIs.
 * Reads 64 bit network interface byte counters directly from the operating system.
-* Delivers precise upload and download speed measurements.
+* Provides accurate upload and download speed measurements.
 
 ### Single Instance Protection
 
 * Prevents multiple copies of the application from running simultaneously.
-* Implemented using **QSharedMemory** safeguards.
+* Implemented using **QSharedMemory**.
 
 ### Advanced Customization
 
 * Font family selection.
-* Adjustable font sizes and weights.
+* Adjustable font sizes.
+* Normal and bold font weights.
 * UI scaling controls.
 * Multiple speed unit modes:
 
@@ -54,7 +83,7 @@ A lightweight, high performance network speed monitor that integrates seamlessly
 
 ### Dedicated QThread Monitoring Engine
 
-Traditional `QTimer` based solutions execute on the main UI thread, which can introduce interface lag during intensive processing.
+Traditional `QTimer` implementations execute on the main UI thread, which can introduce lag during intensive processing.
 
 NetSpeedMeter moves network calculations to a dedicated background thread using **QThread**, ensuring:
 
@@ -86,7 +115,7 @@ NetSpeedMeter addresses this through:
 
 ---
 
-## 💻 Getting Started
+## 💻 Building from Source
 
 ### Prerequisites
 
@@ -103,24 +132,20 @@ NetSpeedMeter addresses this through:
 * Qt Widgets
 * Qt Network
 
----
-
-## 🔨 Build Instructions
-
-### 1. Clone the Repository
+### Clone the Repository
 
 ```bash
 git clone https://github.com/sayedalve/netspeedmeter.git
 cd netspeedmeter
 ```
 
-### 2. Configure the Project
+### Configure the Project
 
 ```cmd
 cmake -S . -B build/release -DCMAKE_BUILD_TYPE=Release -G "Visual Studio 17 2022" -A x64
 ```
 
-### 3. Build the Application
+### Build the Application
 
 ```cmd
 cmake --build build/release --config Release --parallel
@@ -142,7 +167,7 @@ This creates a standalone executable package that can run on systems without a l
 
 ## ⚙️ Configuration
 
-Application settings are stored locally in:
+Application settings are stored in:
 
 ```text
 %APPDATA%\NetSpeedMeter\config.json
@@ -187,10 +212,11 @@ To restore default settings:
 
 ## 👤 Author
 
-**Md Sayed Alve**
+### Md Sayed Alve
 
-* Core Architecture & Design
-* GitHub: https://github.com/sayedalve
+Core Architecture & Design
+
+GitHub: https://github.com/sayedalve
 
 ---
 

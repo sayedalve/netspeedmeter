@@ -29,9 +29,6 @@
 
 namespace nsm {
 
-// ═════════════════════════════════════════════════════════════════════════════
-//  Design tokens
-// ═════════════════════════════════════════════════════════════════════════════
 namespace Theme {
 constexpr const char* BG_WINDOW    = "#1A1A1A";
 constexpr const char* BG_CARD      = "#242424";
@@ -47,9 +44,6 @@ constexpr int SPACING       = 10;
 constexpr int LABEL_W       = 160;
 }
 
-// ═════════════════════════════════════════════════════════════════════════════
-//  Global dialog stylesheet
-// ═════════════════════════════════════════════════════════════════════════════
 static const QString kDialogStyle = QStringLiteral(R"(
 QDialog {
     background-color: #1A1A1A;
@@ -305,14 +299,13 @@ QFrame[frameShape="5"] {
 }
 )");
 
-// ═════════════════════════════════════════════════════════════════════════════
-//  SettingsDialog implementation
-// ═════════════════════════════════════════════════════════════════════════════
-
 SettingsDialog::SettingsDialog(NetworkPoller* poller, QWidget* parent)
     : QDialog(parent)
     , m_poller(poller)
 {
+    // MUST BE FIRST: Blocks all save triggers while UI elements are constructed
+    m_isLoading = true;
+
     setWindowTitle(tr("NetSpeedMeter — Settings"));
     setWindowFlags(windowFlags() & ~Qt::WindowContextHelpButtonHint);
     setMinimumSize(520, 480);
@@ -357,6 +350,15 @@ SettingsDialog::SettingsDialog(NetworkPoller* poller, QWidget* parent)
     btnRow->addWidget(m_resetBtn);
     btnRow->addStretch();
 
+    // ── PROFESSIONAL BRANDING FOOTER ──
+    auto* brandLbl = new QLabel(tr("v1.0.0  |  Developed by Md Sayed Alve"), this);
+    brandLbl->setStyleSheet(QStringLiteral("color: #555555; font-size: 11px; font-weight: bold;"));
+    brandLbl->setAlignment(Qt::AlignCenter);
+    btnRow->addWidget(brandLbl);
+
+    btnRow->addStretch();
+    // ──────────────────────────────────
+
     m_okBtn     = new QPushButton(tr("OK"),     this);
     m_applyBtn  = new QPushButton(tr("Apply"),  this);
     m_cancelBtn = new QPushButton(tr("Cancel"), this);
@@ -377,9 +379,10 @@ SettingsDialog::SettingsDialog(NetworkPoller* poller, QWidget* parent)
     connect(m_cancelBtn, &QPushButton::clicked, this, &QDialog::reject);
     connect(m_resetBtn,  &QPushButton::clicked, this, &SettingsDialog::onReset);
 
-    // FIXED: Lock live updates while loading to prevent race conditions
-    m_isLoading = true;
+    // Apply config
     loadFromConfig(ConfigManager::instance().config());
+    
+    // Unlock updates
     m_isLoading = false;
 }
 
@@ -388,7 +391,6 @@ void SettingsDialog::applyDialogStyle()
     setStyleSheet(kDialogStyle);
 }
 
-// ── Helper: labelled row ────────────────────────────────────────────────────
 static QHBoxLayout* labeledRow(const QString& labelText,
                                QWidget* control,
                                const QString& hint = {})
@@ -413,7 +415,6 @@ static QHBoxLayout* labeledRow(const QString& labelText,
     return row;
 }
 
-// ── General tab ─────────────────────────────────────────────────────────────
 QWidget* SettingsDialog::buildGeneralTab()
 {
     auto* page = new QWidget;
@@ -421,7 +422,6 @@ QWidget* SettingsDialog::buildGeneralTab()
     vbox->setContentsMargins(16, 16, 16, 16);
     vbox->setSpacing(14);
 
-    // Polling group
     auto* pollGroup = new QGroupBox(tr("Update Rate"), page);
     auto* pollVBox  = new QVBoxLayout(pollGroup);
     pollVBox->setSpacing(10);
@@ -443,11 +443,9 @@ QWidget* SettingsDialog::buildGeneralTab()
 
     vbox->addWidget(pollGroup);
 
-    // LIVE connection: interval changes apply immediately
     connect(m_intervalSpin, QOverload<int>::of(&QSpinBox::valueChanged),
             this, &SettingsDialog::onIntervalChanged);
 
-    // Behaviour group
     auto* behavGroup = new QGroupBox(tr("Behaviour"), page);
     auto* behavVBox  = new QVBoxLayout(behavGroup);
     behavVBox->setSpacing(10);
@@ -460,11 +458,9 @@ QWidget* SettingsDialog::buildGeneralTab()
 
     vbox->addWidget(behavGroup);
 
-    // LIVE connections
     connect(m_startupCheck, &QCheckBox::toggled, this, &SettingsDialog::onStartupToggled);
     connect(m_trayCheck,    &QCheckBox::toggled, this, &SettingsDialog::onTrayToggled);
 
-    // Storage info
     auto* infoGroup = new QGroupBox(tr("Storage"), page);
     auto* infoVBox  = new QVBoxLayout(infoGroup);
 
@@ -481,7 +477,6 @@ QWidget* SettingsDialog::buildGeneralTab()
     return page;
 }
 
-// ── Network tab ───────────────────────────────────────────────────────────────
 QWidget* SettingsDialog::buildNetworkTab()
 {
     auto* page = new QWidget;
@@ -545,7 +540,6 @@ QWidget* SettingsDialog::buildNetworkTab()
     return page;
 }
 
-// ── Appearance tab ────────────────────────────────────────────────────────────
 QWidget* SettingsDialog::buildAppearanceTab()
 {
     auto* scroll = new QScrollArea;
@@ -560,7 +554,6 @@ QWidget* SettingsDialog::buildAppearanceTab()
     vbox->setContentsMargins(16, 16, 16, 16);
     vbox->setSpacing(14);
 
-    // ── Opacity ───────────────────────────────────────────────────────────────
     auto* opacGroup = new QGroupBox(tr("Transparency"), inner);
     auto* opacVBox  = new QVBoxLayout(opacGroup);
     opacVBox->setSpacing(10);
@@ -591,12 +584,10 @@ QWidget* SettingsDialog::buildAppearanceTab()
     connect(m_opacitySlider, &QSlider::valueChanged,
             this, &SettingsDialog::onOpacitySliderChanged);
 
-    // ── Font ──────────────────────────────────────────────────────────────────
     auto* fontGroup = new QGroupBox(tr("Typography"), inner);
     auto* fontVBox  = new QVBoxLayout(fontGroup);
     fontVBox->setSpacing(10);
 
-    // Font family
     auto* familyRow = new QHBoxLayout;
     m_fontFamilyCombo = new QFontComboBox(fontGroup);
     m_fontFamilyCombo->setFontFilters(QFontComboBox::ScalableFonts);
@@ -614,7 +605,6 @@ QWidget* SettingsDialog::buildAppearanceTab()
     connect(m_fontFamilyCombo, &QFontComboBox::currentTextChanged,
             this, &SettingsDialog::onFontFamilyChanged);
 
-    // Font size & Bold Option
     auto* sizeRow = new QHBoxLayout;
     m_fontSizeSpin = new QSpinBox(fontGroup);
     m_fontSizeSpin->setRange(6, 24);
@@ -638,7 +628,6 @@ QWidget* SettingsDialog::buildAppearanceTab()
     connect(m_fontBoldCheck, &QCheckBox::toggled,
             this, &SettingsDialog::onFontBoldToggled);
 
-    // Font scale (legacy, kept for compatibility)
     auto* scaleRow = new QHBoxLayout;
     m_fontScaleSlider = new QSlider(Qt::Horizontal, fontGroup);
     m_fontScaleSlider->setRange(50, 300);
@@ -664,7 +653,6 @@ QWidget* SettingsDialog::buildAppearanceTab()
     connect(m_fontScaleSlider, &QSlider::valueChanged,
             this, &SettingsDialog::onFontScaleSliderChanged);
 
-    // ── Speed Display ─────────────────────────────────────────────────────────
     auto* displayGroup = new QGroupBox(tr("Speed Display"), inner);
     auto* displayVBox  = new QVBoxLayout(displayGroup);
     displayVBox->setSpacing(10);
@@ -684,7 +672,6 @@ QWidget* SettingsDialog::buildAppearanceTab()
 
     vbox->addWidget(displayGroup);
 
-    // LIVE connections
     connect(m_speedUnitCombo, QOverload<int>::of(&QComboBox::currentIndexChanged),
             this, &SettingsDialog::onSpeedUnitChanged);
     connect(m_decimalCombo, QOverload<int>::of(&QComboBox::currentIndexChanged),
@@ -695,11 +682,9 @@ QWidget* SettingsDialog::buildAppearanceTab()
     return scroll;
 }
 
-// ── Adapter list population ─────────────────────────────────────────────────
 void SettingsDialog::populateAdapterList()
 {
-    if (!m_adapterList)
-        return;
+    if (!m_adapterList) return;
 
     m_adapterList->clear();
 
@@ -717,8 +702,7 @@ void SettingsDialog::populateAdapterList()
     for (const AdapterInfo& a : adapters) {
         auto* item = new QListWidgetItem(a.name, m_adapterList);
         item->setFlags(Qt::ItemIsUserCheckable | Qt::ItemIsEnabled);
-        item->setCheckState(currentGuids.contains(a.guid)
-                            ? Qt::Checked : Qt::Unchecked);
+        item->setCheckState(currentGuids.contains(a.guid) ? Qt::Checked : Qt::Unchecked);
         item->setData(Qt::UserRole, a.guid);
         item->setToolTip(a.guid);
     }
@@ -726,12 +710,9 @@ void SettingsDialog::populateAdapterList()
     onAdapterModeChanged(m_adapterModeCombo ? m_adapterModeCombo->currentIndex() : 0);
 }
 
-// ── Slots ───────────────────────────────────────────────────────────────────
-
 void SettingsDialog::onAdapterModeChanged(int /*index*/)
 {
-    if (!m_adapterModeCombo || !m_adapterList)
-        return;
+    if (!m_adapterModeCombo || !m_adapterList) return;
 
     const auto mode = static_cast<NetworkPoller::AdapterMode>(
         m_adapterModeCombo->currentData().toInt());
@@ -742,90 +723,32 @@ void SettingsDialog::onAdapterModeChanged(int /*index*/)
 
     if (m_adapterHint) {
         if (mode == NetworkPoller::AdapterMode::AutoPrimary)
-            m_adapterHint->setText(tr(
-                "Auto mode picks the most-active physical adapter, ignoring VPN "
-                "and virtual interfaces."));
+            m_adapterHint->setText(tr("Auto mode picks the most-active physical adapter, ignoring VPN and virtual interfaces."));
         else if (mode == NetworkPoller::AdapterMode::AllAdapters)
-            m_adapterHint->setText(tr(
-                "All-adapters mode sums traffic across every physical NIC."));
+            m_adapterHint->setText(tr("All-adapters mode sums traffic across every physical NIC."));
         else
-            m_adapterHint->setText(tr(
-                "Check the adapters you want to monitor. "
-                "Traffic is summed across all checked adapters."));
+            m_adapterHint->setText(tr("Check the adapters you want to monitor. Traffic is summed across all checked adapters."));
     }
 
     applyLiveUpdate();
 }
 
-void SettingsDialog::onRefreshAdapters()
-{
-    populateAdapterList();
-}
+void SettingsDialog::onRefreshAdapters() { populateAdapterList(); }
+void SettingsDialog::onOpacitySliderChanged(int value) { if (m_opacityLabel) m_opacityLabel->setText(QStringLiteral("%1%").arg(value)); applyLiveUpdate(); }
+void SettingsDialog::onFontScaleSliderChanged(int value) { if (m_fontScaleLabel) m_fontScaleLabel->setText(QStringLiteral("%1×").arg(QString::number(value / 100.0, 'f', 2))); applyLiveUpdate(); }
+void SettingsDialog::onFontSizeChanged(int /*value*/) { applyLiveUpdate(); }
+void SettingsDialog::onFontFamilyChanged(const QString& /*family*/) { applyLiveUpdate(); }
+void SettingsDialog::onFontBoldToggled(bool /*checked*/) { applyLiveUpdate(); }
+void SettingsDialog::onSpeedUnitChanged(int /*index*/) { applyLiveUpdate(); }
+void SettingsDialog::onDecimalPlacesChanged(int /*index*/) { applyLiveUpdate(); }
+void SettingsDialog::onShowGraphToggled(bool /*checked*/) { applyLiveUpdate(); }
+void SettingsDialog::onIntervalChanged(int /*value*/) { applyLiveUpdate(); }
+void SettingsDialog::onStartupToggled(bool /*checked*/) { applyLiveUpdate(); }
+void SettingsDialog::onTrayToggled(bool /*checked*/) { applyLiveUpdate(); }
 
-void SettingsDialog::onOpacitySliderChanged(int value)
-{
-    if (m_opacityLabel)
-        m_opacityLabel->setText(QStringLiteral("%1%").arg(value));
-    applyLiveUpdate();
-}
-
-void SettingsDialog::onFontScaleSliderChanged(int value)
-{
-    if (m_fontScaleLabel)
-        m_fontScaleLabel->setText(QStringLiteral("%1×").arg(
-            QString::number(value / 100.0, 'f', 2)));
-    applyLiveUpdate();
-}
-
-void SettingsDialog::onFontSizeChanged(int /*value*/)
-{
-    applyLiveUpdate();
-}
-
-void SettingsDialog::onFontFamilyChanged(const QString& /*family*/)
-{
-    applyLiveUpdate();
-}
-
-void SettingsDialog::onFontBoldToggled(bool /*checked*/)
-{
-    applyLiveUpdate();
-}
-
-void SettingsDialog::onSpeedUnitChanged(int /*index*/)
-{
-    applyLiveUpdate();
-}
-
-void SettingsDialog::onDecimalPlacesChanged(int /*index*/)
-{
-    applyLiveUpdate();
-}
-
-void SettingsDialog::onShowGraphToggled(bool /*checked*/)
-{
-    applyLiveUpdate();
-}
-
-void SettingsDialog::onIntervalChanged(int /*value*/)
-{
-    applyLiveUpdate();
-}
-
-void SettingsDialog::onStartupToggled(bool /*checked*/)
-{
-    applyLiveUpdate();
-}
-
-void SettingsDialog::onTrayToggled(bool /*checked*/)
-{
-    applyLiveUpdate();
-}
-
-// ── Live update helper ────────────────────────────────────────────────────────
 void SettingsDialog::applyLiveUpdate()
 {
-    if (m_isLoading) return; // FIXED: Prevent saving while window is building
+    if (m_isLoading) return; // Completely prevents 100ms slider bug during startup
 
     const AppConfig newCfg = collectToConfig();
     ConfigManager::instance().setConfig(newCfg);
@@ -833,7 +756,6 @@ void SettingsDialog::applyLiveUpdate()
     emit settingsApplied(newCfg);
 }
 
-// ── Load / Save config ──────────────────────────────────────────────────────
 void SettingsDialog::loadFromConfig(const AppConfig& cfg)
 {
     if (m_intervalSpin)  m_intervalSpin->setValue(cfg.updateIntervalMs);
@@ -919,30 +841,16 @@ AppConfig SettingsDialog::collectToConfig() const
     return cfg;
 }
 
-// ── Button handlers ─────────────────────────────────────────────────────────
-void SettingsDialog::onApply()
-{
-    applyLiveUpdate();
-}
-
-void SettingsDialog::onOk()
-{
-    applyLiveUpdate();
-    accept();
-}
-
+void SettingsDialog::onApply() { applyLiveUpdate(); }
+void SettingsDialog::onOk() { applyLiveUpdate(); accept(); }
 void SettingsDialog::onReset()
 {
     const auto answer = QMessageBox::question(
-        this,
-        tr("Reset to Defaults"),
-        tr("This will restore all settings to their factory defaults.\n\n"
-           "Your current settings will be lost. Continue?"),
-        QMessageBox::Yes | QMessageBox::No,
-        QMessageBox::No);
+        this, tr("Reset to Defaults"),
+        tr("This will restore all settings to their factory defaults.\n\nYour current settings will be lost. Continue?"),
+        QMessageBox::Yes | QMessageBox::No, QMessageBox::No);
 
-    if (answer != QMessageBox::Yes)
-        return;
+    if (answer != QMessageBox::Yes) return;
 
     m_isLoading = true;
     loadFromConfig(AppConfig{});
@@ -950,17 +858,7 @@ void SettingsDialog::onReset()
     applyLiveUpdate();
 }
 
-// ── showTab ─────────────────────────────────────────────────────────────────
-void SettingsDialog::showTab(int index)
-{
-    if (m_tabs && index >= 0 && index < m_tabs->count())
-        m_tabs->setCurrentIndex(index);
-}
-
-// ── Helper ───────────────────────────────────────────────────────────────────
-QString SettingsDialog::formatPercent(int value)
-{
-    return QStringLiteral("%1%").arg(value);
-}
+void SettingsDialog::showTab(int index) { if (m_tabs && index >= 0 && index < m_tabs->count()) m_tabs->setCurrentIndex(index); }
+QString SettingsDialog::formatPercent(int value) { return QStringLiteral("%1%").arg(value); }
 
 } // namespace nsm

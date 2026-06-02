@@ -1,113 +1,196 @@
-# NetSpeedMeter C++ — Batch 1: Core Networking & Config
+# NetSpeedMeter
 
-## What was built
-
-| File | Purpose |
-|---|---|
-| `CMakeLists.txt` | Full CMake project: Qt6, iphlpapi, WIN32 subsystem, Release LTO |
-| `src/core/SpeedSample.h` | Plain value type: `uploadBps`, `downloadBps` + unit helpers |
-| `src/core/NetworkPoller.h/.cpp` | `QThread`-based poller using Windows `GetIfEntry2()` |
-| `src/config/AppConfig.h` | Pure data struct with every configurable value and defaults |
-| `src/config/ConfigManager.h/.cpp` | Singleton, JSON load/save via `QJsonDocument` |
-| `src/main.cpp` | Batch 1 smoke-test harness (debug print of speeds) |
-| `build_debug.bat` | One-click Debug build |
-| `build_release.bat` | One-click Release build |
+A lightweight, high performance network speed monitor that integrates seamlessly into the Windows taskbar. Built with **C++17** and **Qt 6**, NetSpeedMeter uses native Windows APIs to provide accurate, real time download and upload speed metrics directly within your workspace without unnecessary background clutter.
 
 ---
 
-## Architecture decisions
+## 🚀 Features
 
-### NetworkPoller — why a QThread instead of QTimer?
+### Native Taskbar Integration
 
-`QTimer` fires on the GUI thread. Network I/O (even a simple `GetIfEntry2` call)
-can block for milliseconds under load. Running it on a dedicated `QThread` keeps
-the GUI perfectly responsive even at 100 ms poll intervals.
+* Frameless, transparent interface designed to blend naturally with the Windows taskbar.
+* Advanced Z order locking mechanism prevents the overlay from slipping behind the taskbar during user interaction.
+* Minimal footprint with a clean and distraction free appearance.
 
-The poller sleeps in 50 ms increments so `stop()` is acknowledged within ≤ 50 ms,
-rather than having to wait for the full interval timeout.
+### Intelligent Visibility Management
 
-### Delta-over-elapsed-time instead of fixed interval
+* Automatically hides when fullscreen applications are detected.
+* Supports games, media playback, presentations, and other fullscreen activities.
+* Detects Windows Start Menu and Search panels to prevent overlay conflicts.
 
-The actual sleep duration varies slightly due to OS scheduling. Dividing the byte
-delta by the *measured* elapsed time (via `QElapsedTimer`) gives accurate B/s
-rather than one that drifts proportionally to the jitter.
+### Windows 11 Input Handling
 
-### iphlpapi GetIfEntry2 instead of Qt network classes
+* Custom low level mouse event interception.
+* Prevents Windows 11 shell input interception issues.
+* Provides a responsive dark themed context menu experience.
 
-`QNetworkInterface` exposes adapter names and addresses but not traffic counters.
-`GetIfEntry2` (Vista+) returns 64-bit `InOctets` / `OutOctets` per adapter —
-exactly what we need, with no periodic counter wrap until ≈ 18 exabytes.
+### Accurate Network Monitoring
 
-### ConfigManager — singleton with explicit save
+* Uses native Windows **GetIfEntry2** APIs.
+* Reads 64 bit network interface byte counters directly from the operating system.
+* Delivers precise upload and download speed measurements.
 
-Auto-save on every `setConfig()` call would create spurious disk writes during
-batch settings changes. The explicit `save()` call (triggered on dialog Accept /
-application exit) groups all changes into a single write.
+### Single Instance Protection
+
+* Prevents multiple copies of the application from running simultaneously.
+* Implemented using **QSharedMemory** safeguards.
+
+### Advanced Customization
+
+* Font family selection.
+* Adjustable font sizes and weights.
+* UI scaling controls.
+* Multiple speed unit modes:
+
+  * Auto
+  * KB/s
+  * MB/s
+  * Bits/s
+* Adjustable opacity settings.
 
 ---
 
-## How to verify Batch 1
+## 🛠️ Architecture & Technical Design
+
+### Dedicated QThread Monitoring Engine
+
+Traditional `QTimer` based solutions execute on the main UI thread, which can introduce interface lag during intensive processing.
+
+NetSpeedMeter moves network calculations to a dedicated background thread using **QThread**, ensuring:
+
+* Smooth UI responsiveness.
+* Reduced frame drops.
+* Improved monitoring stability.
+
+### High Precision Speed Calculation
+
+System timer intervals can fluctuate under varying CPU workloads.
+
+To maintain accuracy, NetSpeedMeter uses:
+
+* `QElapsedTimer` for high resolution timing.
+* Exact elapsed time measurements.
+* Delta over elapsed time calculations for bandwidth estimation.
+
+This approach produces highly accurate real time speed reporting regardless of system load.
+
+### Safe Configuration Management
+
+Rapid UI updates can introduce configuration race conditions.
+
+NetSpeedMeter addresses this through:
+
+* Explicit configuration saves during application shutdown or settings confirmation.
+* Startup configuration locks during UI initialization.
+* Protection against unintended configuration overwrites.
+
+---
+
+## 💻 Getting Started
 
 ### Prerequisites
 
-- Qt 6.5+ installed with MSVC or MinGW toolchain
-- CMake 3.21+
-- MSVC 2019/2022 or MinGW 12+
+| Requirement      | Version                       |
+| ---------------- | ----------------------------- |
+| Operating System | Windows 10 / 11 (64 bit)      |
+| Compiler         | MSVC 2019 / 2022 or MinGW 12+ |
+| Build System     | CMake 3.21+                   |
+| Framework        | Qt 6.5+                       |
 
-### Build
+### Required Qt Modules
 
-```bat
-REM Set your Qt path first (skip if it's already on PATH / cmake finds it)
-set QT_DIR=C:\Qt\6.7.0\msvc2022_64
-
-build_debug.bat
-```
-
-### Run
-
-```bat
-build\debug\Debug\NetSpeedMeter.exe
-```
-
-You should see output similar to:
-
-```
-=== Detected Network Adapters ===
- [ 5 ] Intel(R) Wi-Fi 6E AX211 160MHz
- [ 7 ] Realtek PCIe GbE Family Controller
-================================
-Active adapter: Intel(R) Wi-Fi 6E AX211 160MHz  [ {GUID} ]
-↑ 0.3 KB/s  ↓ 4.7 KB/s
-↑ 0.1 KB/s  ↓ 12.3 KB/s
-...
-```
-
-A `config.json` will be written to `%APPDATA%\NetSpeedMeter\NetSpeedMeter\config.json`
-on clean exit (Ctrl+C / close window).
+* Qt Core
+* Qt Widgets
+* Qt Network
 
 ---
 
-## What comes next
+## 🔨 Build Instructions
 
-| Batch | Content |
-|---|---|
-| **2** | `SettingsDialog` — tabbed QDialog (General / Network / Appearance), reads & writes `AppConfig` |
-| **3** | `TrayManager` — system tray icon, right-click menu, links dialog, keeps app alive (replaces the keepAlive timer in `main.cpp`) |
-| **4** | `OverlayWidget` — frameless transparent QWidget, mouse drag, position persistence |
-| **5** | `SpeedRenderer` — QPainter engine: typography, arrows, mini area-chart history graph |
+### 1. Clone the Repository
+
+```bash
+git clone https://github.com/sayedalve/netspeedmeter.git
+cd netspeedmeter
+```
+
+### 2. Configure the Project
+
+```cmd
+cmake -S . -B build/release -DCMAKE_BUILD_TYPE=Release -G "Visual Studio 17 2022" -A x64
+```
+
+### 3. Build the Application
+
+```cmd
+cmake --build build/release --config Release --parallel
+```
 
 ---
 
-## Key design invariants to preserve in later batches
+## 📦 Deployment
 
-1. **`NetworkPoller` is never touched from the GUI thread** except through its
-   thread-safe setters (`setIntervalMs`, `setAdapterMode`, `setSelectedAdapters`).
+Deploy the required Qt runtime libraries using:
 
-2. **`ConfigManager::save()`** is always called either on Settings dialog Accept
-   or `QApplication::aboutToQuit` — never more frequently.
+```cmd
+windeployqt --no-translations --no-compiler-runtime build\release\Release\NetSpeedMeter.exe
+```
 
-3. The `nsm::` namespace wraps all project classes to prevent name collisions with
-   Qt / Windows SDK symbols.
+This creates a standalone executable package that can run on systems without a local Qt installation.
 
-4. **No raw `new` without an owner** — every heap allocation uses a Qt parent,
-   `std::unique_ptr`, or RAII container.
+---
+
+## ⚙️ Configuration
+
+Application settings are stored locally in:
+
+```text
+%APPDATA%\NetSpeedMeter\config.json
+```
+
+Stored settings include:
+
+* Window position
+* Display preferences
+* Typography settings
+* Scale factors
+* Unit modes
+* Opacity values
+
+### Reset Configuration
+
+To restore default settings:
+
+1. Close NetSpeedMeter.
+2. Navigate to:
+
+```text
+%APPDATA%\NetSpeedMeter\
+```
+
+3. Delete `config.json`.
+4. Restart the application.
+
+---
+
+## 🏗️ Technology Stack
+
+* C++17
+* Qt 6
+* Windows API
+* CMake
+* QThread
+* QSharedMemory
+* GetIfEntry2 Network Interface APIs
+
+---
+
+## 👤 Author
+
+**Md Sayed Alve**
+
+* Core Architecture & Design
+* GitHub: https://github.com/sayedalve
+
+---
+

@@ -17,31 +17,21 @@ int main(int argc, char* argv[])
     QApplication::setHighDpiScaleFactorRoundingPolicy(
         Qt::HighDpiScaleFactorRoundingPolicy::PassThrough);
 
-    // This prevents the app from dying when Settings is closed
     QApplication::setQuitOnLastWindowClosed(false);
 
-    // ── FIXED: Single Instance Lock ───────────────────────────────────────────
+    // Single Instance Lock
     QSharedMemory sharedMem(QStringLiteral("NetSpeedMeter_Unique_Instance_Lock"));
     if (!sharedMem.create(1)) {
         qWarning() << "NetSpeedMeter is already running! Exiting duplicate instance.";
-        return 0; // Silently exit if already running
+        return 0; 
     }
 
-    // ── Configuration ─────────────────────────────────────────────────────────
     nsm::ConfigManager& cfgMgr = nsm::ConfigManager::instance();
     if (!cfgMgr.load())
         qWarning() << "Failed to load config; using defaults.";
 
-    nsm::AppConfig cfg = cfgMgr.config();
+    const nsm::AppConfig cfg = cfgMgr.config();
 
-    // ── FIXED: Force 1000ms default if old ghost config files are stuck ───
-    if (cfg.updateIntervalMs == 100) {
-        cfg.updateIntervalMs = 1000;
-        cfgMgr.setConfig(cfg);
-        cfgMgr.save();
-    }
-
-    // ── Network Poller ────────────────────────────────────────────────────────
     nsm::NetworkPoller poller;
     poller.setIntervalMs(cfg.updateIntervalMs);
     poller.setAdapterMode(cfg.adapterMode);
@@ -62,12 +52,10 @@ int main(int argc, char* argv[])
 
     poller.start();
 
-    // ── Speed Widget (taskbar overlay) ────────────────────────────────────────
     nsm::SpeedWidget speedWidget(&poller);
     speedWidget.restorePosition();
     speedWidget.show();
 
-    // ── Tray Manager ──────────────────────────────────────────────────────────
     nsm::TrayManager trayMgr(&poller, &app);
     trayMgr.install();
 
@@ -79,7 +67,6 @@ int main(int argc, char* argv[])
     QObject::connect(&trayMgr, &nsm::TrayManager::exitRequested,
                      &app, &QApplication::quit);
 
-    // ── Save config on clean exit ─────────────────────────────────────────────
     QObject::connect(&app, &QApplication::aboutToQuit, [&] {
         trayMgr.uninstall();
         speedWidget.hide();

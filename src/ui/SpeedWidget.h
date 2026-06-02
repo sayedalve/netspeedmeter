@@ -15,18 +15,6 @@ namespace nsm {
 
 class NetworkPoller;
 
-/**
- * @brief Compact taskbar-integrated speed widget.
- *
- * Window flags: Qt::Tool | Qt::FramelessWindowHint | Qt::WindowStaysOnTopHint
- *  • Qt::Tool: hides from taskbar app list, does NOT auto-hide on click
- *  • FramelessWindowHint: no borders
- *  • WindowStaysOnTopHint: stays above normal windows
- *
- * Fullscreen bleed-through protection:
- *  • QTimer every 500ms checks foreground window via WinAPI.
- *  • Hides when fullscreen app or Start Menu / Search is active.
- */
 class SpeedWidget : public QWidget
 {
     Q_OBJECT
@@ -94,6 +82,7 @@ private:
         double fontScale    { 1.0 };
         QString fontFamily  { QStringLiteral("Segoe UI") };
         int    fontSize     { 11 };
+        bool   fontBold     { false }; // ADDED
         QString speedUnit   { QStringLiteral("auto") };
         int    decimalPlaces{ 1 };
         bool   positionLocked { false };

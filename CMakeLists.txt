@@ -28,6 +28,7 @@ qt_standard_project_setup()
 # ── Source files ──────────────────────────────────────────────────────────────
 set(NSM_SOURCES
     src/main.cpp
+    netspeedmeter.rc
 
     # Config subsystem
     src/config/AppConfig.h

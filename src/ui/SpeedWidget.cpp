@@ -23,23 +23,18 @@
 
 namespace nsm {
 
-// ═════════════════════════════════════════════════════════════════════════════
-//  SpeedWidget — Compact taskbar-integrated overlay
-// ═════════════════════════════════════════════════════════════════════════════
-
 static constexpr int kDefaultWidth  = 120;
 static constexpr int kDefaultHeight = 36;
 
-// Hardcoded colors — NEVER change these
-static const QColor kColorUploadArrow(220, 53, 69);    // Red #DC3545
-static const QColor kColorDownloadArrow(40, 167, 69);  // Green #28A745
-static const QColor kColorText(255, 255, 255);         // White
+static const QColor kColorUploadArrow(220, 53, 69);
+static const QColor kColorDownloadArrow(40, 167, 69);
+static const QColor kColorText(255, 255, 255);
 
 SpeedWidget::SpeedWidget(NetworkPoller* poller, QWidget* parent)
     : QWidget(parent,
               Qt::FramelessWindowHint
             | Qt::WindowStaysOnTopHint
-            | Qt::Tool             // Using Tool instead of ToolTip prevents disappearing on click
+            | Qt::Tool
             | Qt::NoDropShadowWindowHint)
     , m_poller(poller)
 {
@@ -53,7 +48,6 @@ SpeedWidget::SpeedWidget(NetworkPoller* poller, QWidget* parent)
     setFixedSize(kDefaultWidth, kDefaultHeight);
     setWindowTitle(tr("NetSpeedMeter"));
 
-    // Load config and connect
     onConfigChanged(ConfigManager::instance().config());
 
     connect(poller, &NetworkPoller::speedUpdated,
@@ -62,7 +56,6 @@ SpeedWidget::SpeedWidget(NetworkPoller* poller, QWidget* parent)
     connect(&ConfigManager::instance(), &ConfigManager::configChanged,
             this, &SpeedWidget::onConfigChanged);
 
-    // Debounced position save
     m_savePosTimer = new QTimer(this);
     m_savePosTimer->setSingleShot(true);
     m_savePosTimer->setInterval(500);
@@ -71,7 +64,6 @@ SpeedWidget::SpeedWidget(NetworkPoller* poller, QWidget* parent)
 
     updateLayoutMetrics();
 
-    // ── Z-Order Checker Timer ──
     QTimer* visTimer = new QTimer(this);
     connect(visTimer, &QTimer::timeout, this, &SpeedWidget::onVisibilityCheckTimer);
     visTimer->start(500);
@@ -79,26 +71,19 @@ SpeedWidget::SpeedWidget(NetworkPoller* poller, QWidget* parent)
 
 SpeedWidget::~SpeedWidget() = default;
 
-// ── Positioning ───────────────────────────────────────────────────────────────
-
 void SpeedWidget::restorePosition()
 {
     const AppConfig cfg = ConfigManager::instance().config();
-
-    // Detect taskbar geometry
     QRect tbar = taskbarRect();
     int tbarH = taskbarHeight();
 
-    // Default: left side of taskbar, vertically centered
     int x = cfg.widgetPos.x();
     int y = cfg.widgetPos.y();
 
     if (x == 0 && y == 0) {
-        // First run — snap to taskbar left
         x = tbar.left() + 8;
         y = tbar.top() + (tbarH - height()) / 2;
     } else {
-        // Validate stored Y is still on taskbar; if not, recenter
         if (qAbs(y - tbar.top()) > tbarH) {
             y = tbar.top() + (tbarH - height()) / 2;
         }
@@ -127,20 +112,16 @@ QRect SpeedWidget::taskbarRect() const
     QRect full  = scr->geometry();
 
     if (avail.bottom() < full.bottom()) {
-        return QRect(full.left(), avail.bottom(),
-                     full.width(), full.bottom() - avail.bottom());
+        return QRect(full.left(), avail.bottom(), full.width(), full.bottom() - avail.bottom());
     }
     else if (avail.top() > full.top()) {
-        return QRect(full.left(), full.top(),
-                     full.width(), avail.top() - full.top());
+        return QRect(full.left(), full.top(), full.width(), avail.top() - full.top());
     }
     else if (avail.left() > full.left()) {
-        return QRect(full.left(), full.top(),
-                     avail.left() - full.left(), full.height());
+        return QRect(full.left(), full.top(), avail.left() - full.left(), full.height());
     }
     else if (avail.right() < full.right()) {
-        return QRect(avail.right(), full.top(),
-                     full.right() - avail.right(), full.height());
+        return QRect(avail.right(), full.top(), full.right() - avail.right(), full.height());
     }
     return QRect(full.left(), full.bottom() - 48, full.width(), 48);
 }
@@ -150,16 +131,11 @@ int SpeedWidget::taskbarHeight() const
     return taskbarRect().height();
 }
 
-// ═════════════════════════════════════════════════════════════════════════════
-//  Painting — NO background, only arrows + text
-// ═════════════════════════════════════════════════════════════════════════════
-
 void SpeedWidget::paintEvent(QPaintEvent* /*event*/)
 {
     QPainter p(this);
     p.setRenderHint(QPainter::Antialiasing);
     p.setRenderHint(QPainter::TextAntialiasing);
-
     drawArrowsAndText(p);
 }
 
@@ -167,12 +143,9 @@ void SpeedWidget::drawArrowsAndText(QPainter& p)
 {
     const int arrowSize = m_layout.arrowSize;
     const int xArrow = 6;
-    
-    // Tightened Y coordinates
     const int upBaseline = 15;
     const int downBaseline = 29;
 
-    // Upload arrow (RED)
     QPolygonF upArrow;
     upArrow << QPointF(xArrow + arrowSize / 2.0, upBaseline - arrowSize)
             << QPointF(xArrow, upBaseline)
@@ -181,12 +154,9 @@ void SpeedWidget::drawArrowsAndText(QPainter& p)
     p.setBrush(kColorUploadArrow);
     p.drawPolygon(upArrow);
 
-    // Upload text (WHITE)
     const QString upText = formatSpeed(m_currentUploadBps);
-    drawShadowedText(p, m_layout.textX, upBaseline, upText,
-                     m_layout.font, kColorText);
+    drawShadowedText(p, m_layout.textX, upBaseline, upText, m_layout.font, kColorText);
 
-    // Download arrow (GREEN)
     QPolygonF downArrow;
     downArrow << QPointF(xArrow, downBaseline - arrowSize)
               << QPointF(xArrow + arrowSize, downBaseline - arrowSize)
@@ -194,15 +164,11 @@ void SpeedWidget::drawArrowsAndText(QPainter& p)
     p.setBrush(kColorDownloadArrow);
     p.drawPolygon(downArrow);
 
-    // Download text (WHITE)
     const QString downText = formatSpeed(m_currentDownloadBps);
-    drawShadowedText(p, m_layout.textX, downBaseline, downText,
-                     m_layout.font, kColorText);
+    drawShadowedText(p, m_layout.textX, downBaseline, downText, m_layout.font, kColorText);
 }
 
-void SpeedWidget::drawShadowedText(QPainter& p, int x, int y,
-                                   const QString& text, const QFont& font,
-                                   const QColor& color)
+void SpeedWidget::drawShadowedText(QPainter& p, int x, int y, const QString& text, const QFont& font, const QColor& color)
 {
     p.setFont(font);
     p.setPen(QColor(0, 0, 0, 180));
@@ -211,17 +177,22 @@ void SpeedWidget::drawShadowedText(QPainter& p, int x, int y,
     p.drawText(x, y, text);
 }
 
-// ═════════════════════════════════════════════════════════════════════════════
-//  Mouse Events
-// ═════════════════════════════════════════════════════════════════════════════
-
 void SpeedWidget::mousePressEvent(QMouseEvent* event)
 {
     if (event->button() == Qt::LeftButton && !m_style.positionLocked) {
         m_dragging = true;
         m_dragOffset = event->pos();
+        event->accept();
     }
-    QWidget::mousePressEvent(event);
+    else if (event->button() == Qt::RightButton) {
+        // FIXED: Stop the Windows 11 Shell from eating the right click context
+        event->accept(); 
+        QContextMenuEvent ctxEvent(QContextMenuEvent::Mouse, event->pos(), event->globalPosition().toPoint());
+        QCoreApplication::sendEvent(this, &ctxEvent);
+    }
+    else {
+        QWidget::mousePressEvent(event);
+    }
 }
 
 void SpeedWidget::mouseMoveEvent(QMouseEvent* event)
@@ -254,8 +225,7 @@ void SpeedWidget::mouseDoubleClickEvent(QMouseEvent* event)
 
 void SpeedWidget::moveEvent(QMoveEvent* /*event*/)
 {
-    if (!m_dragging)
-        return;
+    if (!m_dragging) return;
     m_savePosTimer->start();
 }
 
@@ -313,10 +283,6 @@ void SpeedWidget::contextMenuEvent(QContextMenuEvent* event)
     menu.exec(event->globalPos());
 }
 
-// ═════════════════════════════════════════════════════════════════════════════
-//  Slots
-// ═════════════════════════════════════════════════════════════════════════════
-
 void SpeedWidget::onSpeedUpdated(SpeedSample sample)
 {
     m_currentUploadBps   = sample.uploadBps;
@@ -330,6 +296,7 @@ void SpeedWidget::onConfigChanged(AppConfig newConfig)
     m_style.fontScale     = newConfig.fontScale;
     m_style.fontFamily    = newConfig.fontFamily;
     m_style.fontSize      = newConfig.fontSize;
+    m_style.fontBold      = newConfig.fontBold; // CACHED
     m_style.speedUnit     = newConfig.speedUnit;
     m_style.decimalPlaces = newConfig.decimalPlaces;
     m_style.positionLocked = newConfig.positionLocked;
@@ -378,20 +345,14 @@ void SpeedWidget::onVisibilityCheckTimer()
     } else {
         if (!isVisible()) show();
         
-        // FIXED: Force widget to absolute top of Z-Order so taskbar clicks can't hide it
         HWND hwnd = reinterpret_cast<HWND>(winId());
         SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
     }
 #endif
 }
 
-// ═════════════════════════════════════════════════════════════════════════════
-//  Layout & Formatting
-// ═════════════════════════════════════════════════════════════════════════════
-
 void SpeedWidget::updateLayoutMetrics()
 {
-    const AppConfig cfg = ConfigManager::instance().config(); // Grabs fresh config
     const qreal scale = static_cast<qreal>(m_style.fontScale);
 
     int baseSize = m_style.fontSize;
@@ -404,8 +365,8 @@ void SpeedWidget::updateLayoutMetrics()
     QFont font(m_style.fontFamily);
     font.setPointSize(fontSize);
     
-    // FIXED: Now respects the bold setting, defaults to Normal instead of DemiBold
-    font.setWeight(cfg.fontBold ? QFont::Bold : QFont::Normal); 
+    // USES CACHED VALUE (Defaults to Normal now)
+    font.setWeight(m_style.fontBold ? QFont::Bold : QFont::Normal); 
     
     font.setStyleStrategy(QFont::PreferAntialias);
     m_layout.font = font;
@@ -414,7 +375,6 @@ void SpeedWidget::updateLayoutMetrics()
 QString SpeedWidget::formatSpeed(double bps) const
 {
     const bool bitsMode = (m_style.speedUnit == QStringLiteral("bits"));
-
     double value;
     QString unit;
 
@@ -424,41 +384,21 @@ QString SpeedWidget::formatSpeed(double bps) const
         double mbps = kbps / 1000.0;
         double gbps = mbps / 1000.0;
 
-        if (gbps >= 1.0) {
-            value = gbps;
-            unit  = QStringLiteral("Gbps");
-        } else if (mbps >= 1.0) {
-            value = mbps;
-            unit  = QStringLiteral("Mbps");
-        } else {
-            value = kbps;
-            unit  = QStringLiteral("Kbps");
-        }
+        if (gbps >= 1.0) { value = gbps; unit = QStringLiteral("Gbps"); }
+        else if (mbps >= 1.0) { value = mbps; unit = QStringLiteral("Mbps"); }
+        else { value = kbps; unit = QStringLiteral("Kbps"); }
     }
     else {
         double kbps = bps / 1024.0;
         double mbps = kbps / 1024.0;
         double gbps = mbps / 1024.0;
 
-        if (m_style.speedUnit == QStringLiteral("mbps")) {
-            value = mbps;
-            unit  = QStringLiteral("MB/s");
-        }
-        else if (m_style.speedUnit == QStringLiteral("kbps")) {
-            value = kbps;
-            unit  = QStringLiteral("KB/s");
-        }
+        if (m_style.speedUnit == QStringLiteral("mbps")) { value = mbps; unit = QStringLiteral("MB/s"); }
+        else if (m_style.speedUnit == QStringLiteral("kbps")) { value = kbps; unit = QStringLiteral("KB/s"); }
         else {
-            if (gbps >= 1.0) {
-                value = gbps;
-                unit  = QStringLiteral("GB/s");
-            } else if (mbps >= 1.0) {
-                value = mbps;
-                unit  = QStringLiteral("MB/s");
-            } else {
-                value = kbps;
-                unit  = QStringLiteral("KB/s");
-            }
+            if (gbps >= 1.0) { value = gbps; unit = QStringLiteral("GB/s"); }
+            else if (mbps >= 1.0) { value = mbps; unit = QStringLiteral("MB/s"); }
+            else { value = kbps; unit = QStringLiteral("KB/s"); }
         }
     }
 

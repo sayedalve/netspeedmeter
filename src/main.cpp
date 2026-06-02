@@ -1,22 +1,11 @@
 #include <QApplication>
 #include <QDebug>
+#include <QSharedMemory>
 
 #include "config/ConfigManager.h"
 #include "core/NetworkPoller.h"
 #include "ui/TrayManager.h"
 #include "ui/SpeedWidget.h"
-
-/**
- * @file main.cpp
- *
- * NetSpeedMeter — Batch 5+ refined.
- *
- * Behaviour:
- *  • Config loaded from JSON.
- *  • NetworkPoller starts in background.
- *  • SpeedWidget appears as compact taskbar overlay (transparent, X-drag only).
- *  • TrayManager provides system tray icon and Settings dialog.
- */
 
 int main(int argc, char* argv[])
 {
@@ -28,14 +17,29 @@ int main(int argc, char* argv[])
     QApplication::setHighDpiScaleFactorRoundingPolicy(
         Qt::HighDpiScaleFactorRoundingPolicy::PassThrough);
 
+    // This prevents the app from dying when Settings is closed
     QApplication::setQuitOnLastWindowClosed(false);
+
+    // ── FIXED: Single Instance Lock ───────────────────────────────────────────
+    QSharedMemory sharedMem(QStringLiteral("NetSpeedMeter_Unique_Instance_Lock"));
+    if (!sharedMem.create(1)) {
+        qWarning() << "NetSpeedMeter is already running! Exiting duplicate instance.";
+        return 0; // Silently exit if already running
+    }
 
     // ── Configuration ─────────────────────────────────────────────────────────
     nsm::ConfigManager& cfgMgr = nsm::ConfigManager::instance();
     if (!cfgMgr.load())
         qWarning() << "Failed to load config; using defaults.";
 
-    const nsm::AppConfig cfg = cfgMgr.config();
+    nsm::AppConfig cfg = cfgMgr.config();
+
+    // ── FIXED: Force 1000ms default if old ghost config files are stuck ───
+    if (cfg.updateIntervalMs == 100) {
+        cfg.updateIntervalMs = 1000;
+        cfgMgr.setConfig(cfg);
+        cfgMgr.save();
+    }
 
     // ── Network Poller ────────────────────────────────────────────────────────
     nsm::NetworkPoller poller;
@@ -71,10 +75,6 @@ int main(int argc, char* argv[])
                      &trayMgr, &nsm::TrayManager::showSettings);
     QObject::connect(&speedWidget, &nsm::SpeedWidget::exitRequested,
                      &trayMgr, &nsm::TrayManager::quitApp);
-
-    if (!cfg.minimiseToTray) {
-        trayMgr.showSettings();
-    }
 
     QObject::connect(&trayMgr, &nsm::TrayManager::exitRequested,
                      &app, &QApplication::quit);

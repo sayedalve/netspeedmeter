@@ -117,6 +117,7 @@ bool ConfigManager::load()
         cfg.fontScale     = app[K_FONT_SCALE].toDouble(cfg.fontScale);
         cfg.fontFamily    = app[K_FONT_FAMILY].toString(cfg.fontFamily);
         cfg.fontSize      = app[K_FONT_SIZE].toInt(cfg.fontSize);
+        cfg.fontBold      = app[K_FONT_BOLD].toBool(cfg.fontBold); // NEW
         cfg.showGraph     = app[K_SHOW_GRAPH].toBool(cfg.showGraph);
         cfg.graphHistorySize = app[K_GRAPH_HISTORY].toInt(cfg.graphHistorySize);
         cfg.speedUnit     = app[K_SPEED_UNIT].toString(cfg.speedUnit);
@@ -179,6 +180,7 @@ bool ConfigManager::save() const
         app[K_FONT_SCALE]    = cfg.fontScale;
         app[K_FONT_FAMILY]   = cfg.fontFamily;
         app[K_FONT_SIZE]     = cfg.fontSize;
+        app[K_FONT_BOLD]     = cfg.fontBold; // NEW
         app[K_SHOW_GRAPH]    = cfg.showGraph;
         app[K_GRAPH_HISTORY] = cfg.graphHistorySize;
         app[K_SPEED_UNIT]    = cfg.speedUnit;

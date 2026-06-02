@@ -111,12 +111,10 @@ void TrayManager::onTrayActivated(QSystemTrayIcon::ActivationReason reason)
 bool TrayManager::eventFilter(QObject* watched, QEvent* event)
 {
     if (watched == m_settingsDlg && event->type() == QEvent::Close) {
-        const AppConfig cfg = ConfigManager::instance().config();
-        if (cfg.minimiseToTray) {
-            event->ignore();
-            m_settingsDlg->hide();
-            return true;
-        }
+        // FIXED: Always just hide the dialog. Never kill the app here.
+        event->ignore();
+        m_settingsDlg->hide();
+        return true;
     }
     return QObject::eventFilter(watched, event);
 }
@@ -124,11 +122,8 @@ bool TrayManager::eventFilter(QObject* watched, QEvent* event)
 void TrayManager::onSettingsDialogFinished(int result)
 {
     Q_UNUSED(result)
-
-    const AppConfig cfg = ConfigManager::instance().config();
-    if (!cfg.minimiseToTray) {
-        emit exitRequested();
-    }
+    
+    // FIXED: Removed the logic that emitted exitRequested() when the window closed.
     if (m_settingsDlg && m_settingsDlg->isVisible())
         m_settingsDlg->hide();
 }

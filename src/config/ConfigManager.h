@@ -49,6 +49,7 @@ private:
     static constexpr const char* K_FONT_SCALE       = "fontScale";
     static constexpr const char* K_FONT_FAMILY      = "fontFamily";
     static constexpr const char* K_FONT_SIZE        = "fontSize";
+    static constexpr const char* K_FONT_BOLD        = "fontBold"; // NEW
     static constexpr const char* K_SHOW_GRAPH       = "showGraph";
     static constexpr const char* K_GRAPH_HISTORY    = "graphHistorySize";
     static constexpr const char* K_SPEED_UNIT       = "speedUnit";

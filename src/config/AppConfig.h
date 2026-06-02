@@ -9,42 +9,33 @@
 
 namespace nsm {
 
-/**
- * @brief Pure data structure that holds every user-configurable value.
- */
 struct AppConfig
 {
-    // ── General ───────────────────────────────────────────────────────────────
+    // General
     int updateIntervalMs { 1000 };
     bool startWithWindows { false };
     bool minimiseToTray { true };
 
-    // ── Network ───────────────────────────────────────────────────────────────
+    // Network
     NetworkPoller::AdapterMode adapterMode { NetworkPoller::AdapterMode::AutoPrimary };
     QStringList selectedAdapterGuids;
 
-    // ── Appearance ────────────────────────────────────────────────────────────
+    // Appearance
     double opacity { 0.92 };
     double fontScale { 1.0 };
     QString fontFamily { QStringLiteral("Segoe UI") };
     int fontSize { 11 };
-    bool showGraph { false };   // permanently disabled
+    bool fontBold { false }; // FIXED: Normal text by default
+    bool showGraph { false };
     int graphHistorySize { 60 };
 
-    // ── Speed Display ─────────────────────────────────────────────────────────
-    /**
-     * @brief Speed unit display mode.
-     * "auto"   – auto-select KB/MB/GB (never B/s)
-     * "mbps"   – always MB/s
-     * "kbps"   – always KB/s
-     * "bits"   – bits/sec: Kbps, Mbps, Gbps
-     */
+    // Speed Display
     QString speedUnit { QStringLiteral("auto") };
     int decimalPlaces { 1 };
 
-    // ── Window / Positioning ──────────────────────────────────────────────────
-    QPoint  widgetPos  { 0, 0 };   // 0,0 = auto-detect taskbar left
-    QSize   widgetSize { 130, 40 };
+    // Window / Positioning
+    QPoint  widgetPos  { 0, 0 };
+    QSize   widgetSize { 120, 36 };
     bool positionLocked { false };
 };
 

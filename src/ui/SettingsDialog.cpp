@@ -377,7 +377,10 @@ SettingsDialog::SettingsDialog(NetworkPoller* poller, QWidget* parent)
     connect(m_cancelBtn, &QPushButton::clicked, this, &QDialog::reject);
     connect(m_resetBtn,  &QPushButton::clicked, this, &SettingsDialog::onReset);
 
+    // FIXED: Lock live updates while loading to prevent race conditions
+    m_isLoading = true;
     loadFromConfig(ConfigManager::instance().config());
+    m_isLoading = false;
 }
 
 void SettingsDialog::applyDialogStyle()
@@ -611,11 +614,13 @@ QWidget* SettingsDialog::buildAppearanceTab()
     connect(m_fontFamilyCombo, &QFontComboBox::currentTextChanged,
             this, &SettingsDialog::onFontFamilyChanged);
 
-    // Font size
+    // Font size & Bold Option
     auto* sizeRow = new QHBoxLayout;
     m_fontSizeSpin = new QSpinBox(fontGroup);
     m_fontSizeSpin->setRange(6, 24);
     m_fontSizeSpin->setSuffix(tr(" pt"));
+
+    m_fontBoldCheck = new QCheckBox(tr("Bold text"), fontGroup);
 
     auto* sizeLbl = new QLabel(tr("Font size"), fontGroup);
     sizeLbl->setFixedWidth(Theme::LABEL_W);
@@ -624,11 +629,14 @@ QWidget* SettingsDialog::buildAppearanceTab()
 
     sizeRow->addWidget(sizeLbl);
     sizeRow->addWidget(m_fontSizeSpin, 1);
+    sizeRow->addWidget(m_fontBoldCheck);
     sizeRow->addStretch();
     fontVBox->addLayout(sizeRow);
 
     connect(m_fontSizeSpin, QOverload<int>::of(&QSpinBox::valueChanged),
             this, &SettingsDialog::onFontSizeChanged);
+    connect(m_fontBoldCheck, &QCheckBox::toggled,
+            this, &SettingsDialog::onFontBoldToggled);
 
     // Font scale (legacy, kept for compatibility)
     auto* scaleRow = new QHBoxLayout;
@@ -779,6 +787,11 @@ void SettingsDialog::onFontFamilyChanged(const QString& /*family*/)
     applyLiveUpdate();
 }
 
+void SettingsDialog::onFontBoldToggled(bool /*checked*/)
+{
+    applyLiveUpdate();
+}
+
 void SettingsDialog::onSpeedUnitChanged(int /*index*/)
 {
     applyLiveUpdate();
@@ -812,6 +825,8 @@ void SettingsDialog::onTrayToggled(bool /*checked*/)
 // ── Live update helper ────────────────────────────────────────────────────────
 void SettingsDialog::applyLiveUpdate()
 {
+    if (m_isLoading) return; // FIXED: Prevent saving while window is building
+
     const AppConfig newCfg = collectToConfig();
     ConfigManager::instance().setConfig(newCfg);
     ConfigManager::instance().save();
@@ -851,8 +866,11 @@ void SettingsDialog::loadFromConfig(const AppConfig& cfg)
     if (m_fontSizeSpin) {
         m_fontSizeSpin->setValue(qBound(6, cfg.fontSize, 24));
     }
-    if (m_showGraphCheck)     m_showGraphCheck->setChecked(cfg.showGraph);
-    if (m_graphHistorySpin)   m_graphHistorySpin->setValue(cfg.graphHistorySize);
+    if (m_fontBoldCheck) {
+        m_fontBoldCheck->setChecked(cfg.fontBold);
+    }
+    if (m_showGraphCheck)    m_showGraphCheck->setChecked(cfg.showGraph);
+    if (m_graphHistorySpin)  m_graphHistorySpin->setValue(cfg.graphHistorySize);
 
     if (m_speedUnitCombo) {
         const int idx = m_speedUnitCombo->findData(cfg.speedUnit);
@@ -892,6 +910,7 @@ AppConfig SettingsDialog::collectToConfig() const
     if (m_fontScaleSlider)  cfg.fontScale  = m_fontScaleSlider->value() / 100.0;
     if (m_fontFamilyCombo)  cfg.fontFamily = m_fontFamilyCombo->currentFont().family();
     if (m_fontSizeSpin)     cfg.fontSize   = m_fontSizeSpin->value();
+    if (m_fontBoldCheck)    cfg.fontBold   = m_fontBoldCheck->isChecked();
     if (m_showGraphCheck)   cfg.showGraph  = m_showGraphCheck->isChecked();
     if (m_graphHistorySpin) cfg.graphHistorySize = m_graphHistorySpin->value();
     if (m_speedUnitCombo)   cfg.speedUnit  = m_speedUnitCombo->currentData().toString();
@@ -925,7 +944,9 @@ void SettingsDialog::onReset()
     if (answer != QMessageBox::Yes)
         return;
 
+    m_isLoading = true;
     loadFromConfig(AppConfig{});
+    m_isLoading = false;
     applyLiveUpdate();
 }
 

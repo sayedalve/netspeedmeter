@@ -15,8 +15,9 @@
 #include <QFontMetrics>
 #include <QScreen>
 #include <QGuiApplication>
+#include <QTimer>
 
-#ifdef Q_OS_WIN
+#ifdef _WIN32
 #  include <windows.h>
 #endif
 
@@ -38,7 +39,7 @@ SpeedWidget::SpeedWidget(NetworkPoller* poller, QWidget* parent)
     : QWidget(parent,
               Qt::FramelessWindowHint
             | Qt::WindowStaysOnTopHint
-            | Qt::ToolTip          // hides from taskbar app list
+            | Qt::Tool             // Using Tool instead of ToolTip prevents disappearing on click
             | Qt::NoDropShadowWindowHint)
     , m_poller(poller)
 {
@@ -69,6 +70,11 @@ SpeedWidget::SpeedWidget(NetworkPoller* poller, QWidget* parent)
             this, &SpeedWidget::onSavePositionTimer);
 
     updateLayoutMetrics();
+
+    // ── Z-Order Checker Timer ──
+    QTimer* visTimer = new QTimer(this);
+    connect(visTimer, &QTimer::timeout, this, &SpeedWidget::onVisibilityCheckTimer);
+    visTimer->start(500);
 }
 
 SpeedWidget::~SpeedWidget() = default;
@@ -114,36 +120,28 @@ void SpeedWidget::snapToTaskbar()
 
 QRect SpeedWidget::taskbarRect() const
 {
-    // Primary screen taskbar area (bottom by default on Win11)
     QScreen* scr = QGuiApplication::primaryScreen();
     if (!scr) return QRect(0, 0, 1920, 40);
 
     QRect avail = scr->availableGeometry();
     QRect full  = scr->geometry();
 
-    // Taskbar is the difference between full and available
     if (avail.bottom() < full.bottom()) {
-        // Bottom taskbar
         return QRect(full.left(), avail.bottom(),
                      full.width(), full.bottom() - avail.bottom());
     }
     else if (avail.top() > full.top()) {
-        // Top taskbar
         return QRect(full.left(), full.top(),
                      full.width(), avail.top() - full.top());
     }
     else if (avail.left() > full.left()) {
-        // Left taskbar
         return QRect(full.left(), full.top(),
                      avail.left() - full.left(), full.height());
     }
     else if (avail.right() < full.right()) {
-        // Right taskbar
         return QRect(avail.right(), full.top(),
                      full.right() - avail.right(), full.height());
     }
-
-    // Fallback: assume bottom taskbar ~48px
     return QRect(full.left(), full.bottom() - 48, full.width(), 48);
 }
 
@@ -162,7 +160,6 @@ void SpeedWidget::paintEvent(QPaintEvent* /*event*/)
     p.setRenderHint(QPainter::Antialiasing);
     p.setRenderHint(QPainter::TextAntialiasing);
 
-    // NO background painting — fully transparent
     drawArrowsAndText(p);
 }
 
@@ -170,56 +167,52 @@ void SpeedWidget::drawArrowsAndText(QPainter& p)
 {
     const int arrowSize = m_layout.arrowSize;
     const int xArrow = 6;
+    
+    // Tightened Y coordinates
+    const int upBaseline = 15;
+    const int downBaseline = 29;
 
-    // ── Upload arrow (RED) ──────────────────────────────────────────────────
-    const int upY = 6 + arrowSize;
+    // Upload arrow (RED)
     QPolygonF upArrow;
-    upArrow << QPointF(xArrow + arrowSize / 2.0, upY - arrowSize)
-            << QPointF(xArrow, upY)
-            << QPointF(xArrow + arrowSize, upY);
+    upArrow << QPointF(xArrow + arrowSize / 2.0, upBaseline - arrowSize)
+            << QPointF(xArrow, upBaseline)
+            << QPointF(xArrow + arrowSize, upBaseline);
     p.setPen(Qt::NoPen);
     p.setBrush(kColorUploadArrow);
     p.drawPolygon(upArrow);
 
     // Upload text (WHITE)
     const QString upText = formatSpeed(m_currentUploadBps);
-    drawShadowedText(p, m_layout.textX, upY - 1, upText,
+    drawShadowedText(p, m_layout.textX, upBaseline, upText,
                      m_layout.font, kColorText);
 
-    // ── Download arrow (GREEN) ─────────────────────────────────────────────
-    const int downY = height() - 6;
+    // Download arrow (GREEN)
     QPolygonF downArrow;
-    downArrow << QPointF(xArrow + arrowSize / 2.0, downY + arrowSize)
-              << QPointF(xArrow, downY)
-              << QPointF(xArrow + arrowSize, downY);
+    downArrow << QPointF(xArrow, downBaseline - arrowSize)
+              << QPointF(xArrow + arrowSize, downBaseline - arrowSize)
+              << QPointF(xArrow + arrowSize / 2.0, downBaseline);
     p.setBrush(kColorDownloadArrow);
     p.drawPolygon(downArrow);
 
     // Download text (WHITE)
     const QString downText = formatSpeed(m_currentDownloadBps);
-    drawShadowedText(p, m_layout.textX, downY + 1, downText,
+    drawShadowedText(p, m_layout.textX, downBaseline, downText,
                      m_layout.font, kColorText);
 }
-
-// ── Text shadow for readability on any wallpaper ────────────────────────────
 
 void SpeedWidget::drawShadowedText(QPainter& p, int x, int y,
                                    const QString& text, const QFont& font,
                                    const QColor& color)
 {
     p.setFont(font);
-
-    // Shadow (1px offset, semi-transparent black)
     p.setPen(QColor(0, 0, 0, 180));
     p.drawText(x + 1, y + 1, text);
-
-    // Main text
     p.setPen(color);
     p.drawText(x, y, text);
 }
 
 // ═════════════════════════════════════════════════════════════════════════════
-//  Mouse — X-axis only, constrained to taskbar row
+//  Mouse Events
 // ═════════════════════════════════════════════════════════════════════════════
 
 void SpeedWidget::mousePressEvent(QMouseEvent* event)
@@ -268,7 +261,6 @@ void SpeedWidget::moveEvent(QMoveEvent* /*event*/)
 
 void SpeedWidget::enterEvent(QEnterEvent* /*event*/)
 {
-    // Subtle opacity boost on hover for feedback
     setWindowOpacity(qMin(1.0, m_style.opacity + 0.05));
 }
 
@@ -357,12 +349,49 @@ void SpeedWidget::onSavePositionTimer()
     qDebug() << "SpeedWidget: position saved" << cfg.widgetPos;
 }
 
+void SpeedWidget::onVisibilityCheckTimer()
+{
+#ifdef _WIN32
+    HWND fg = GetForegroundWindow();
+    if (!fg) return;
+
+    char className[256];
+    GetClassNameA(fg, className, sizeof(className));
+    QString cls = QString::fromLatin1(className);
+
+    RECT rc;
+    GetWindowRect(fg, &rc);
+    int w = rc.right - rc.left;
+    int h = rc.bottom - rc.top;
+    int sw = GetSystemMetrics(SM_CXSCREEN);
+    int sh = GetSystemMetrics(SM_CYSCREEN);
+
+    bool isFullScreen = (w >= sw && h >= sh && cls != "Progman" && cls != "WorkerW");
+    
+    bool isStartMenu = (cls == "Windows.UI.Core.CoreWindow" ||
+                        cls == "SearchUI" ||
+                        cls == "StartMenuExperienceHost" ||
+                        cls == "SearchHost");
+
+    if (isFullScreen || isStartMenu) {
+        if (isVisible()) hide();
+    } else {
+        if (!isVisible()) show();
+        
+        // FIXED: Force widget to absolute top of Z-Order so taskbar clicks can't hide it
+        HWND hwnd = reinterpret_cast<HWND>(winId());
+        SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+    }
+#endif
+}
+
 // ═════════════════════════════════════════════════════════════════════════════
 //  Layout & Formatting
 // ═════════════════════════════════════════════════════════════════════════════
 
 void SpeedWidget::updateLayoutMetrics()
 {
+    const AppConfig cfg = ConfigManager::instance().config(); // Grabs fresh config
     const qreal scale = static_cast<qreal>(m_style.fontScale);
 
     int baseSize = m_style.fontSize;
@@ -374,7 +403,10 @@ void SpeedWidget::updateLayoutMetrics()
 
     QFont font(m_style.fontFamily);
     font.setPointSize(fontSize);
-    font.setWeight(QFont::DemiBold);
+    
+    // FIXED: Now respects the bold setting, defaults to Normal instead of DemiBold
+    font.setWeight(cfg.fontBold ? QFont::Bold : QFont::Normal); 
+    
     font.setStyleStrategy(QFont::PreferAntialias);
     m_layout.font = font;
 }
@@ -383,12 +415,10 @@ QString SpeedWidget::formatSpeed(double bps) const
 {
     const bool bitsMode = (m_style.speedUnit == QStringLiteral("bits"));
 
-    // Convert to appropriate base unit
     double value;
     QString unit;
 
     if (bitsMode) {
-        // bits/sec: Kbps, Mbps, Gbps (1 byte = 8 bits)
         double bits = bps * 8.0;
         double kbps = bits / 1000.0;
         double mbps = kbps / 1000.0;
@@ -406,7 +436,6 @@ QString SpeedWidget::formatSpeed(double bps) const
         }
     }
     else {
-        // bytes/sec: KB/s, MB/s, GB/s (never B/s)
         double kbps = bps / 1024.0;
         double mbps = kbps / 1024.0;
         double gbps = mbps / 1024.0;
@@ -420,7 +449,6 @@ QString SpeedWidget::formatSpeed(double bps) const
             unit  = QStringLiteral("KB/s");
         }
         else {
-            // auto — never show B/s
             if (gbps >= 1.0) {
                 value = gbps;
                 unit  = QStringLiteral("GB/s");
